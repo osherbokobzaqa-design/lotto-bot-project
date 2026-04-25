@@ -5,67 +5,77 @@ const fetchResults = require('./lottoScraper');
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-const ai = new JackpotAI([7000000, 15000000, 25000000, 10000000]);
-
-function generateLotto() {
-  let nums = [];
-  while (nums.length < 6) {
-    let n = Math.floor(Math.random() * 37) + 1;
-    if (!nums.includes(n)) nums.push(n);
-  }
-  return nums.sort((a, b) => a - b);
+// אלגוריתם AI מרכזי - בחירת מספרים עם "משקל" סטטיסטי
+function aiSmartPick(maxNumber, count, isStrong = false) {
+    let pool = [];
+    // יצירת "בריכת מספרים" שבה למספרים מסוימים יש יותר סיכוי (דימוי של מספרים חמים)
+    for (let i = 1; i <= maxNumber; i++) {
+        pool.push(i);
+        if (i % 3 === 0 || i % 7 === 0) pool.push(i); // הטיה סטטיסטית למספרים מסוימים
+    }
+    
+    let picks = [];
+    while (picks.length < count) {
+        let randomIndex = Math.floor(Math.random() * pool.length);
+        let num = pool[randomIndex];
+        if (!picks.includes(num)) picks.push(num);
+    }
+    return isStrong ? picks[0] : picks.sort((a, b) => a - b);
 }
 
-// פונקציית צ'אנס מתוקנת - סדר קלפים קבוע לפי חוקי המשחק
-function generateChance() {
-  const suits = ["♣️", "♦️", "♥️", "♠️"]; // סדר קבוע
-  const values = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-  
-  // הגרלת קלף אחד לכל סדרה בסדר הנכון
-  return suits.map(suit => {
-    const randomValue = values[Math.floor(Math.random() * values.length)];
-    return `${randomValue}${suit}`;
-  }).join('  |  ');
-}
+// פונקציות הגרלה לפי חוקי מפעל הפיס
+const games = {
+    lotto: () => {
+        const nums = aiSmartPick(37, 6);
+        const strong = Math.floor(Math.random() * 7) + 1;
+        return `🎰 **לוטו:** ${nums.join(', ')} | **חזק:** ${strong}`;
+    },
+    chance: () => {
+        const suits = ["♣️", "♦️", "♥️", "♠️"];
+        const values = ["7", "8", "9", "10", "J", "Q", "K", "A"];
+        const pick = suits.map(s => values[Math.floor(Math.random() * values.length)] + s).join(' | ');
+        return `🃏 **צ'אנס:** ${pick}`;
+    },
+    tripleSeven: () => {
+        const nums = aiSmartPick(70, 17);
+        return `💎 **777:** ${nums.join(', ')}`;
+    },
+    oneTwoThree: () => {
+        const n1 = Math.floor(Math.random() * 10);
+        const n2 = Math.floor(Math.random() * 10);
+        const n3 = Math.floor(Math.random() * 10);
+        return `🔢 **123:** ${n1}-${n2}-${n3}`;
+    }
+};
 
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "🤖 **מערכת Statisfy AI מעודכנת!**\nהאלגוריתם סונכרן עם סדר הקלפים הרשמי.", {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "📊 ניתוח קופה חכם (AI)", callback_data: "ai_analyze" }],
-        [{ text: "🎰 הגרלת לוטו", callback_data: "lotto" }],
-        [{ text: "🃏 הגרלת צ'אנס (מסודר)", callback_data: "chance" }],
-        [{ text: "🔍 תוצאות אמת מהאתר", callback_data: "get_results" }]
-      ]
-    }
-  });
+    bot.sendMessage(msg.chat.id, "🎯 **Statisfy AI - מערכת חיזוי מבוססת אלגוריתם**\nבחר את המשחק לניתוח AI:", {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: "🎰 לוטו / דאבל לוטו", callback_data: "l_lotto" }],
+                [{ text: "🃏 צ'אנס (סדרות מסודרות)", callback_data: "l_chance" }],
+                [{ text: "💎 משחק 777", callback_data: "l_777" }],
+                [{ text: "🔢 משחק 123", callback_data: "l_123" }],
+                [{ text: "📊 ניתוח כדאיות קופה (AI)", callback_data: "ai_analyze" }]
+            ]
+        }
+    });
 });
 
 bot.on("callback_query", async (q) => {
-  const id = q.message.chat.id;
+    const id = q.message.chat.id;
+    const data = q.data;
 
-  if (q.data === "ai_analyze") {
-    const analysis = ai.analyze(28000000);
-    let msg = `🧠 **ניתוח אלגוריתם Statisfy:**\n`;
-    msg += `💰 קופה נוכחית: 28,000,000 ₪\n`;
-    msg += `📈 ציון כדאיות: ${analysis.z ? analysis.z.toFixed(2) : "13.75"}\n`;
-    msg += `📢 המלצה: ${analysis.overlay ? "🔥 כדאי מאוד לשחק!" : "❄️ קופה רגילה"}`;
-    bot.sendMessage(id, msg);
-  }
+    bot.answerCallbackQuery(q.id);
 
-  if (q.data === "lotto") {
-    bot.sendMessage(id, "🎲 **מספרים מומלצים:**\n" + generateLotto().join(", "));
-  }
-
-  if (q.data === "chance") {
-    bot.sendMessage(id, "🃏 **צירוף צ'אנס מסודר:**\n" + generateChance());
-  }
-
-  if (q.data === "get_results") {
-    bot.sendMessage(id, "⌛ מושך נתונים מהאתר...");
-    const results = await fetchResults();
-    bot.sendMessage(id, `✅ **תוצאות אחרונות:**\n1️⃣ ${results[0].join(', ')}\n2️⃣ ${results[1].join(', ')}`);
-  }
+    if (data === "l_lotto") bot.sendMessage(id, games.lotto());
+    if (data === "l_chance") bot.sendMessage(id, games.chance());
+    if (data === "l_777") bot.sendMessage(id, games.tripleSeven());
+    if (data === "l_123") bot.sendMessage(id, games.oneTwoThree());
+    
+    if (data === "ai_analyze") {
+        const ai = new JackpotAI();
+        const analysis = ai.analyze(30000000); // ניתוח לפי קופה של 30 מיליון
+        bot.sendMessage(id, `🧠 **ניתוח AI:**\nהקופה כרגע גבוהה מהממוצע ב-${analysis.score}%.\n📢 המלצה: ${analysis.recommendation}`);
+    }
 });
-
-console.log("Statisfy Bot is Online - Chance sequence fixed.");
