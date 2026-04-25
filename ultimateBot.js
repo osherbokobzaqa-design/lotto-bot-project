@@ -6,15 +6,20 @@ const fetchResults = require('./lottoScraper');
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// מנוע חישוב קריפטוגרפי ברמה גבוהה - מבוסס על ה-Commit האחרון שלך
+// מנוע חישוב עמוק עם "נשימה" למעבד כדי למנוע קריסה ב-Railway
 async function _executeHighEndCompute(limit, count) {
     const frequencyMap = new Int32Array(limit + 1);
     const iterations = 10000000; 
-    
-    for (let i = 0; i < iterations; i++) {
-        const randomBuffer = crypto.randomBytes(4);
-        const n = (randomBuffer.readUInt32BE(0) % limit) + 1;
-        frequencyMap[n]++;
+    const batchSize = 100000; // מחלקים את ה-10 מיליון למנות קטנות
+
+    for (let i = 0; i < iterations; i += batchSize) {
+        for (let j = 0; j < batchSize; j++) {
+            const randomBuffer = crypto.randomBytes(4);
+            const n = (randomBuffer.readUInt32BE(0) % limit) + 1;
+            frequencyMap[n]++;
+        }
+        // נותן לשרת לעבד הודעות אחרות כדי לא לקרוס
+        await new Promise(resolve => setImmediate(resolve));
     }
 
     return Array.from({ length: limit }, (_, i) => i + 1)
@@ -23,7 +28,6 @@ async function _executeHighEndCompute(limit, count) {
         .sort((a, b) => a - b);
 }
 
-// מיפוי פעולות נקי ודיסקרטי
 const secureEngine = {
     lotto_system: async (chatId) => {
         const n = await _executeHighEndCompute(37, 8);
@@ -67,12 +71,8 @@ bot.onText(/\/start/, (msg) => {
 bot.on("callback_query", async (q) => {
     const chatId = q.message.chat.id;
 
-    // פתרון קריטי: עונים לטלגרם מיד כדי שלא יהיה Timeout (שגיאה 400)
-    try {
-        await bot.answerCallbackQuery(q.id);
-    } catch (e) {
-        console.log("Callback already answered");
-    }
+    // עונה מיד כדי למנוע את שגיאת ה-400 שראינו בלוג
+    try { await bot.answerCallbackQuery(q.id); } catch (e) {}
 
     if (secureEngine[q.data]) {
         await secureEngine[q.data](chatId);
