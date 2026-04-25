@@ -7,34 +7,20 @@ const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
 /**
- * 🌌 OMNI COMPUTATION ENGINE v7.0
- * מנוע הדור הבא: 1,000,000,000 סימולציות קריפטוגרפיות.
+ * 🌌 OMNI ENGINE v7.5 - THE FINAL CUT
+ * מנוע מיליארד סימולציות עם תיקון ויזואלי לקלפים
  */
 async function _executeOmni(limit, count, chatId) {
-    const statusMsg = await bot.sendMessage(chatId, "🌌 **מפעיל מנוע OMNI: ניתוח מיליארד סימולציות (1B)...**\n*תהליך זה דורש עוצמת מחשוב מקסימלית*");
-    
-    // שימוש ב-Uint32Array לביצועים קרובים לחומרה
+    const statusMsg = await bot.sendMessage(chatId, "🌌 **מנוע OMNI בחישוב עומק (1B)...**");
     const freq = new Uint32Array(limit + 1);
-    const total = 1000000000; // מיליארד סימולציות
-    const chunkSize = 10000000; // 10 מיליון לכל סבב עיבוד
+    const total = 1000000000;
+    const chunkSize = 10000000;
 
     for (let i = 0; i < total; i += chunkSize) {
-        // הזרמת Entropy גולמי במהירות שיא
         const data = crypto.randomBytes(chunkSize * 4);
         for (let j = 0; j < chunkSize; j++) {
-            const val = (data.readUInt32BE(j * 4) % limit) + 1;
-            freq[val]++;
+            freq[(data.readUInt32BE(j * 4) % limit) + 1]++;
         }
-        
-        // עדכון סטטוס ויזואלי למשתמש כל 100 מיליון
-        if (i % 100000000 === 0 && i > 0) {
-            await bot.editMessageText(`🌌 **מנוע OMNI בחישוב: ${i / 1000000}M / 1000M...**`, {
-                chat_id: chatId,
-                message_id: statusMsg.message_id
-            }).catch(() => {});
-        }
-
-        // מאפשר למערכת ההפעלה לטפל בבקשות אחרות כדי למנוע קפיאה
         await new Promise(r => setImmediate(r));
     }
 
@@ -51,21 +37,26 @@ const secureEngine = {
     lotto_system: async (id) => {
         const n = await _executeOmni(37, 8, id);
         const h = (crypto.randomBytes(1)[0] % 7) + 1;
-        return bot.sendMessage(id, `🎰 **לוטו OMNI (1 Billion):**\nמספרים: ${n.join(', ')}\n🔢 חזק: ${h}`);
+        return bot.sendMessage(id, `🎰 **לוטו OMNI (1B):**\nמספרים: \`${n.join(' - ')}\`\n🔢 חזק: \`${h}\``, { parse_mode: 'Markdown' });
     },
+    // 🃏 תיקון תצוגת קלפים: סידור ויזואלי ומסודר
     chance_system: async (id) => {
-        const s = ["♣️", "♦️", "♥️", "♠️"];
-        const v = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-        const res = s.map(suit => v[crypto.randomBytes(1)[0] % v.length] + suit).join(' | ');
-        return bot.sendMessage(id, `🃏 **צ'אנס VIP (1B Matrix):**\nצירוף: ${res}`);
+        const suits = ["♣️", "♦️", "♥️", "♠️"];
+        const values = ["7", "8", "9", "10", "J", "Q", "K", "A"];
+        // יצירת יד קלפים ייחודית ומסודרת
+        const hand = suits.map(suit => {
+            const val = values[crypto.randomBytes(1)[0] % values.length];
+            return `[ ${val}${suit} ]`;
+        });
+        return bot.sendMessage(id, `🃏 **צ'אנס VIP (1B Matrix):**\nהיד שנבחרה:\n${hand.join('  ')}`, { parse_mode: 'Markdown' });
     },
     seven_system: async (id) => {
         const n = await _executeOmni(70, 8, id);
-        return bot.sendMessage(id, `💎 **777 OMNI (Deep 1B):**\nמספרים: ${n.join(', ')}`);
+        return bot.sendMessage(id, `💎 **777 OMNI (1B Scan):**\nמספרים: \`${n.join(' - ')}\``, { parse_mode: 'Markdown' });
     },
     one23_system: async (id) => {
         const r = Array.from(crypto.randomBytes(3)).map(b => b % 10);
-        return bot.sendMessage(id, `🔢 **123 (Quantum):**\nתוצאה: ${r.join('-')}`);
+        return bot.sendMessage(id, `🔢 **123 Quantum:**\nתוצאה: \`${r.join(' - ')}\``, { parse_mode: 'Markdown' });
     }
 };
 
@@ -76,23 +67,27 @@ bot.on("callback_query", async (q) => {
     if (secureEngine[q.data]) {
         await secureEngine[q.data](id);
     } else if (q.data === "results") {
+        // שיפור הצגת התוצאות מהאתר
         const r = await fetchResults();
-        bot.sendMessage(id, `🔍 **תוצאות אמת:**\n🎰 לוטו: ${r[0].join(', ')}\n🃏 דאבל: ${r[1].join(', ')}`);
+        let output = `🔍 **תוצאות אמת אחרונות:**\n\n`;
+        output += `🎰 **לוטו:** \`${r[0].join(', ')}\`\n`;
+        output += `🃏 **דאבל:** \`${r[1].join(', ')}\``;
+        bot.sendMessage(id, output, { parse_mode: 'Markdown' });
     } else if (q.data === "analyze") {
         const j = new JackpotAI();
         const d = j.analyze(28000000); 
-        bot.sendMessage(id, `📊 **ניתוח הסתברות OMNI:**\nהמלצה: ${d.overlay ? "🔥 כדאי לשלוח!" : "⌛ כדאי להמתין"}`);
+        bot.sendMessage(id, `📊 **ניתוח הסתברות OMNI:**\nמצב קופה: ${d.overlay ? "🔥 כדאי לשלוח!" : "⌛ המתנה"}`);
     }
 });
 
 bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id, "🌌 **Omni Engine v7.0 Ready**\nהמערכת מוגדרת למיליארד סימולציות.", {
+    bot.sendMessage(msg.chat.id, "🌌 **Omni System v7.5 Online**\nהפקת תוצאות מבוססת מיליארד איטרציות.", {
         reply_markup: {
             inline_keyboard: [
                 [{ text: "🎰 לוטו OMNI (1B)", callback_data: "lotto_system" }],
-                [{ text: "🃏 צ'אנס VIP", callback_data: "chance_system" }],
+                [{ text: "🃏 צ'אנס VIP (מעוצב)", callback_data: "chance_system" }],
                 [{ text: "💎 777 (Omni Scan)", callback_data: "seven_system" }],
-                [{ text: "🔢 123 (Fast)", callback_data: "one23_system" }],
+                [{ text: "🔢 123 (מהיר)", callback_data: "one23_system" }],
                 [{ text: "📊 ניתוח קופה", callback_data: "analyze" }],
                 [{ text: "🔍 תוצאות אמת", callback_data: "results" }]
             ]
