@@ -3,7 +3,6 @@ const crypto = require('crypto');
 const JackpotAI = require('./jackpotAI'); 
 const fetchResults = require('./lottoScraper'); 
 
-const TelegramBot = require('node-telegram-bot-api');
 const fetchResults = require('./lottoScraper');
 
 const token = process.env.TELEGRAM_TOKEN;
