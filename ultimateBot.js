@@ -1,50 +1,64 @@
 const TelegramBot = require('node-telegram-bot-api');
+const JackpotAI = require('./jackpotAI'); // חיבור לניתוח הקופה
+const fetchResults = require('./lottoScraper'); // חיבור לסקרייפר התוצאות
 
-// משיכת הטוקן ממשתני הסביבה של Railway
+// הגדרת הטוקן ממשתני הסביבה של Railway
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// נתונים סטטיסטיים דמיוניים (כאן אפשר להזין תוצאות אמת בהמשך)
-const hotNumbers = [7, 18, 32, 21, 5]; 
+// אתחול המערכת לניתוח קופות
+const ai = new JackpotAI([10000000, 15000000, 20000000]);
 
-function generateSmartLotto() {
-    let nums = [];
-    // הוספת מספר "חם" אחד לפחות כדי להגדיל סיכויים לפי הסטטיסטיקה
-    nums.push(hotNumbers[Math.floor(Math.random() * hotNumbers.length)]);
-    
-    while(nums.length < 6) {
-        let n = Math.floor(Math.random() * 37) + 1;
-        if(!nums.includes(n)) nums.push(n);
-    }
-    return nums.sort((a, b) => a - b).join(', ');
+function generateLotto() {
+  let nums = [];
+  while (nums.length < 6) {
+    let n = Math.floor(Math.random() * 37) + 1;
+    if (!nums.includes(n)) nums.push(n);
+  }
+  return nums.sort((a, b) => a - b);
 }
 
-function generateSmartChance() {
-    const suits = ["♠️", "♥️", "♦️", "♣️"];
-    const values = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-    return suits.map(s => values[Math.floor(Math.random() * values.length)] + s).join(' | ');
+function generateChance() {
+  const suits = ["♠", "♥", "♦", "♣"];
+  const values = ["7", "8", "9", "10", "J", "Q", "K", "A"];
+  return suits.map(s => values[Math.floor(Math.random() * values.length)] + s);
 }
 
 bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id, "💰 **ברוך הבא לאלגוריתם הפיס האולטימטיבי** 💰\nבחר את סוג ההגרלה לניתוח:", {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: "🎲 הגרל לוטו חכם", callback_data: "lotto" }],
-                [{ text: "🃏 הגרל צ'אנס חכם", callback_data: "chance" }],
-                [{ text: "📊 ניתוח מספרים חמים", callback_data: "stats" }]
-            ]
-        }
-    });
+  bot.sendMessage(msg.chat.id, "🤖 **ברוך הבא למערכת Statisfy המלאה**\nכל האלגוריתמים מחוברים ומוכנים.", {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🎰 הגרלת לוטו חכמה", callback_data: "lotto" }],
+        [{ text: "🃏 הגרלת צ'אנס חכמה", callback_data: "chance" }],
+        [{ text: "📊 ניתוח קופה (AI)", callback_data: "analyze_jackpot" }],
+        [{ text: "🔍 תוצאות אחרונות מהאתר", callback_data: "get_results" }]
+      ]
+    }
+  });
 });
 
-bot.on('callback_query', (query) => {
-    const chatId = query.message.chat.id;
-    
-    if (query.data === "lotto") {
-        bot.sendMessage(chatId, `🎰 המספרים המומלצים עבורך:\n**${generateSmartLotto()}**`);
-    } else if (query.data === "chance") {
-        bot.sendMessage(chatId, `🃏 הצירוף המנצח שלך:\n**${generateSmartChance()}**`);
-    } else if (query.data === "stats") {
-        bot.sendMessage(chatId, `📊 המספרים שזכו הכי הרבה לאחרונה: ${hotNumbers.join(', ')}`);
-    }
+bot.on("callback_query", async (q) => {
+  const id = q.message.chat.id;
+
+  if (q.data === "lotto") {
+    bot.sendMessage(id, "🎲 מספרים מומלצים: " + generateLotto().join(", "));
+  }
+
+  if (q.data === "chance") {
+    bot.sendMessage(id, "🂡 צירוף צ'אנס: " + generateChance().join(" | "));
+  }
+
+  if (q.data === "analyze_jackpot") {
+    const analysis = ai.analyze(25000000); // דוגמה לניתוח קופה של 25 מיליון
+    const status = analysis.overlay ? "🔥 כדאי לשחק!" : "❄️ קופה רגילה";
+    bot.sendMessage(id, `📊 **ניתוח קופה:**\nסכום: 25M\nמצב: ${status}\nציון Z: ${analysis.z.toFixed(2)}`);
+  }
+
+  if (q.data === "get_results") {
+    bot.sendMessage(id, "⌛ מושך נתונים מהאתר...");
+    const results = await fetchResults();
+    bot.sendMessage(id, `✅ תוצאות אחרונות שנמצאו:\n1️⃣ ${results[0].join(', ')}\n2️⃣ ${results[1].join(', ')}`);
+  }
 });
+
+console.log("Statisfy System is Online with all components.");
