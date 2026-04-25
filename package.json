@@ -1,13 +1,15 @@
-"scripts": {
-  "start": "node ultimateBot.js"
-}
-  "name": "ai-lotto-bot",
+{
+  "name": "lotto-bot",
   "version": "1.0.0",
-  "main": "bot/ultimateBot.js",
+  "description": "Omni Engine v8.5",
+  "main": "ultimateBot.js",
+  "scripts": {
+    "start": "node ultimateBot.js"
+  },
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0",
     "axios": "^1.6.0",
-    "cheerio": "^1.0.0",
+    "cheerio": "^1.0.0-rc.12",
     "express": "^4.18.2"
   }
 }
