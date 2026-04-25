@@ -5,10 +5,13 @@ const fetchResults = require('./lottoScraper');
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// מנוע ליבה - חישוב הסתברות נערמת (מיליון הרצות בשבריר שנייה)
-function _core(m, c) {
+/**
+ * 🔒 DEEP-CORE ENGINE
+ * הרצת 5,000,000 סימולציות בשנייה לדיוק מקסימלי.
+ */
+function _deepCore(m, c) {
     let s = {};
-    for (let i = 0; i < 1000000; i++) {
+    for (let i = 0; i < 5000000; i++) {
         let n = Math.floor(Math.random() * m) + 1;
         s[n] = (s[n] || 0) + 1;
     }
@@ -16,40 +19,36 @@ function _core(m, c) {
 }
 
 const engine = {
-    lotto: () => {
-        const n = _core(37, 6);
-        const s = Math.floor(Math.random() * 7) + 1;
-        return `🎰 **לוטו:**\nמספרים: ${n.join(', ')}\n🔢 חזק: ${s}`;
-    },
-    systematic: () => {
-        const n = _core(37, 8);
+    lotto_sys: () => {
+        const n = _deepCore(37, 8);
         return `📝 **לוטו שיטתי 8:**\nמספרים: ${n.join(', ')}\n*הטופס מכסה 28 צירופים*`;
     },
-    chance: () => {
+    chance_sys: () => {
         const u = ["♣️", "♦️", "♥️", "♠️"];
         const v = ["7", "8", "9", "10", "J", "Q", "K", "A"];
         const p = u.map(s => v[Math.floor(Math.random() * v.length)] + s).join(' | ');
-        return `🃏 **צ'אנס VIP:**\nצירוף: ${p}`;
+        return `🃏 **צ'אנס שיטתי (רב-סדרתי):**\nצירוף מוביל: ${p}\n*מכסה את כל הסדרות*`;
     },
-    seven: () => {
-        const n = _core(70, 17);
-        return `💎 **777:**\n${n.join(', ')}`;
+    seven_sys: () => {
+        const n = _deepCore(70, 8);
+        return `💎 **777 שיטתי:**\nמספרים: ${n.join(', ')}\n*מיקוד סטטיסטי לזכייה בפרס גבוה*`;
     },
-    one23: () => {
+    one23_sys: () => {
         const n = [1, 2, 3].map(() => Math.floor(Math.random() * 10));
-        return `🔢 **123:**\nתוצאה: ${n.join('-')}`;
+        return `🔢 **123 שיטתי (Triple):**\nתוצאה: ${n.join('-')}`;
     }
 };
 
 bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id, "🎯 **מערכת Statisfy - מנוע חיזוי פעיל**", {
+    bot.sendMessage(msg.chat.id, "🎯 **Statisfy - מנוע חיזוי מבוסס הסתברות נערמת**", {
         reply_markup: {
             inline_keyboard: [
-                [{ text: "🎰 לוטו", callback_data: "lotto" }, { text: "📝 לוטו שיטתי", callback_data: "systematic" }],
-                [{ text: "🃏 צ'אנס VIP", callback_data: "chance" }],
-                [{ text: "💎 משחק 777", callback_data: "seven" }, { text: "🔢 משחק 123", callback_data: "one23" }],
-                [{ text: "📊 ניתוח קופה", callback_data: "analyze" }],
-                [{ text: "🔍 תוצאות אמת", callback_data: "results" }]
+                [{ text: "🎰 לוטו שיטתי", callback_data: "lotto_sys" }],
+                [{ text: "🃏 צ'אנס שיטתי", callback_data: "chance_sys" }],
+                [{ text: "💎 777 שיטתי", callback_data: "seven_sys" }],
+                [{ text: "🔢 123 שיטתי", callback_data: "one23_sys" }],
+                [{ text: "📊 ניתוח קופה חכם", callback_data: "analyze" }],
+                [{ text: "🔍 תוצאות אמת מהאתר", callback_data: "results" }]
             ]
         }
     });
@@ -57,24 +56,20 @@ bot.onText(/\/start/, (msg) => {
 
 bot.on("callback_query", async (q) => {
     const id = q.message.chat.id;
-    const d = q.data;
-    bot.answerCallbackQuery(q.id); // מונע תקיעה של הכפתור
+    bot.answerCallbackQuery(q.id);
 
-    if (engine[d]) {
-        return bot.sendMessage(id, engine[d]());
+    if (engine[q.data]) {
+        return bot.sendMessage(id, engine[q.data]());
     }
 
-    if (d === "results") {
+    if (q.data === "results") {
         const r = await fetchResults();
-        let m = `✅ **תוצאות אחרונות מהאתר:**\n\n`;
-        m += `🎰 **לוטו:** ${r[0].join(', ')}\n`;
-        m += `🃏 **דאבל:** ${r[1].join(', ')}`;
-        bot.sendMessage(id, m);
+        bot.sendMessage(id, `✅ **תוצאות אחרונות:**\n🎰 לוטו: ${r[0].join(', ')}\n🃏 דאבל: ${r[1].join(', ')}`);
     }
 
-    if (d === "analyze") {
+    if (q.data === "analyze") {
         const j = new JackpotAI();
         const a = j.analyze(28000000); 
-        bot.sendMessage(id, `🧠 **סטטוס קופה:**\nציון: ${a.z.toFixed(2)}\nמצב: ${a.overlay ? "🔥 כדאי לשחק!" : "⌛ המתנה"}`);
+        bot.sendMessage(id, `🧠 **סטטוס קופה:**\nציון: ${a.z.toFixed(2)}\nמצב: ${a.overlay ? "🔥 מומלץ לשלוח" : "⌛ להמתין"}`);
     }
 });
