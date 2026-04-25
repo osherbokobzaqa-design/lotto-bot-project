@@ -17,6 +17,28 @@ function generateLotto() {
   }
   return nums.sort((a, b) => a - b);
 }
+class JackpotAI {
+  constructor(history) {
+    // כאן כדאי להזין היסטוריה אמיתית של קופות מהעבר
+    this.history = history || [5000000, 12000000, 28000000, 7000000];
+  }
+
+  analyze(currentJackpot) {
+    const avg = this.history.reduce((a, b) => a + b, 0) / this.history.length;
+    // חישוב סטיית תקן בסיסית לניתוח AI
+    const diff = currentJackpot - avg;
+    const score = (diff / avg) * 100; 
+
+    return {
+      jackpot: currentJackpot,
+      score: score.toFixed(1),
+      overlay: currentJackpot > avg * 1.5, // המלצה חמה רק אם הקופה גבוהה ב-50% מהממוצע
+      recommendation: currentJackpot > avg ? "כדאי להשתתף" : "חכה להגרלה הבאה"
+    };
+  }
+}
+module.exports = JackpotAI;
+
 
 function generateChance() {
   const suits = ["♠", "♥", "♦", "♣"];
@@ -36,6 +58,18 @@ bot.onText(/\/start/, (msg) => {
     }
   });
 });
+  if (q.data === "analyze_jackpot") {
+    // כאן ה-AI מנתח קופה דינמית
+    const currentPrize = 30000000; // כאן בהמשך נמשוך נתון אמיתי מהאתר
+    const analysis = ai.analyze(currentPrize);
+    
+    let message = `📊 **ניתוח AI למצב הקופה:**\n`;
+    message += `💰 קופה נוכחית: ${currentPrize.toLocaleString()} ₪\n`;
+    message += `📈 ציון כדאיות: ${analysis.score}%\n`;
+    message += `📢 המלצה: ${analysis.recommendation}`;
+    
+    bot.sendMessage(id, message);
+  }
 
 bot.on("callback_query", async (q) => {
   const id = q.message.chat.id;
