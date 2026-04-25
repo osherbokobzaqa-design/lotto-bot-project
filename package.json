@@ -1,7 +1,6 @@
 {
-  "name": "lotto-bot",
+  "name": "lotto-bot-project",
   "version": "1.0.0",
-  "description": "Omni Engine v8.5",
   "main": "ultimateBot.js",
   "scripts": {
     "start": "node ultimateBot.js"
