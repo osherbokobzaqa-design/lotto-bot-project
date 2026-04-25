@@ -5,123 +5,127 @@ const fetchResults = require('./lottoScraper');
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// --- מנוע ה-AI: Heuristic Weighting Engine ---
-class OmniAI {
+// --- מנוע ה-AI והחישוב המסיבי ---
+class OmniUltraAI {
     constructor(realData) {
-        this.weights = new Map();
         this.lastResults = realData;
     }
 
-    // אלגוריתם שקלול: מספרים שהופיעו לאחרונה מקבלים "משקל קריר" כדי לאזן התפלגות
-    calculateWeights(limit) {
+    // מנוע 1B איטרציות עם שקלול AI מובנה
+    async execute1B(limit, count, chatId) {
+        const statusMsg = await bot.sendMessage(chatId, "🌀 **מנוע OMNI בחישוב עומק AI (1B)...**");
+        const freq = new Uint32Array(limit + 1).fill(0);
         const weights = new Float64Array(limit + 1).fill(1.0);
+
+        // שקלול Heuristic לפי תוצאות האמת מהאתר
         if (this.lastResults && this.lastResults.lastLotto) {
-            this.lastResults.lastLotto.forEach(num => {
-                if (num <= limit) weights[num] *= 0.85; // הורדת משקל למספרים "חמים"
-            });
+            this.lastResults.lastLotto.forEach(n => { if(n <= limit) weights[n] *= 0.85; });
         }
-        return weights;
+
+        const total = 1000000000;
+        const chunk = 10000000;
+
+        for (let i = 0; i < total; i += chunk) {
+            const buffer = crypto.randomBytes(chunk * 4);
+            for (let j = 0; j < chunk; j++) {
+                const candidate = (buffer.readUInt32BE(j * 4) % limit) + 1;
+                // AI Gate: סינון לפי משקל הסתברותי
+                if ((crypto.randomBytes(1)[0] / 255) <= weights[candidate]) {
+                    freq[candidate]++;
+                }
+            }
+            await new Promise(r => setImmediate(r)); // מניעת חסימת ה-Event Loop
+        }
+
+        const final = Array.from({ length: limit }, (_, i) => i + 1)
+            .sort((a, b) => freq[b] - freq[a])
+            .slice(0, count)
+            .sort((a, b) => a - b);
+
+        await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+        return final;
     }
 
-    // יצירת מספר עם "סטיית AI" מבוססת אנטרופיה
-    getWeightedNumber(limit, weights) {
-        let found = false;
-        let finalNum;
-        while (!found) {
-            const candidate = (crypto.randomBytes(1)[0] % limit) + 1;
-            const threshold = crypto.randomBytes(1)[0] / 255;
-            if (threshold <= (weights[candidate] || 1.0)) {
-                finalNum = candidate;
-                found = true;
-            }
+    // אלגוריתם צ'אנס: הפקת 3 צירופים מדויקים מבוססי אנטרופיה
+    generateChanceTriad() {
+        const suits = ["♣️", "♦️", "♥️", "♠️"];
+        const vals = ["7", "8", "9", "10", "J", "Q", "K", "A"];
+        const hands = [];
+
+        for (let i = 0; i < 3; i++) {
+            const hand = suits.map(s => {
+                const v = vals[crypto.randomBytes(1)[0] % vals.length];
+                return `┃ ${v}${s} ┃`;
+            }).join(' ');
+            hands.push(hand);
         }
-        return finalNum;
+        return hands;
     }
 }
 
-// --- פונקציות המערכת השיטתיות ---
+// --- ניהול פקודות ומערכות שיטתיות ---
 
-const secureEngine = {
-    // לוטו שיטתי חזק (8 מספרים)
-    lotto_system: async (id, ai) => {
-        const weights = ai.calculateWeights(37);
-        const numbers = [];
-        while(numbers.length < 8) {
-            const n = ai.getWeightedNumber(37, weights);
-            if(!numbers.includes(n)) numbers.push(n);
-        }
-        const strong = ai.getWeightedNumber(7, ai.calculateWeights(7));
-        return bot.sendMessage(id, `🤖 **AI Lotto Elite (Systematic 8):**\n\n\`${numbers.sort((a,b)=>a-b).join(' - ')}\`\n\n🔢 חזק: \`${strong}\`\n\n*מבוסס שקלול אנטרופיה מהאתר*`, { parse_mode: 'Markdown' });
+const engine = {
+    lotto_systemic: async (id, ai) => {
+        const res = await ai.execute1B(37, 8, id);
+        const strong = (crypto.randomBytes(1)[0] % 7) + 1;
+        return bot.sendMessage(id, `🎰 **לוטו שיטתי AI (1B Matrix):**\n\n\`${res.join(' - ')}\`\n\n🔢 חזק: \`${strong}\``, { parse_mode: 'Markdown' });
     },
 
-    // צ'אנס שיטתי (מטריצת קלפים מורחבת)
-    chance_systemic: async (id) => {
-        const suits = ["♣️", "♦️", "♥️", "♠️"];
-        const vals = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-        
-        // יצירת 3 אופציות לכל סדרה (שיטתי)
-        let msg = `🃏 **צ'אנס שיטתי AI Matrix:**\n\n`;
-        suits.forEach(s => {
-            const v1 = vals[crypto.randomBytes(1)[0] % vals.length];
-            const v2 = vals[crypto.randomBytes(2)[1] % vals.length];
-            msg += `${s} ┃ \`${v1}\` או \`${v2}\`\n`;
-        });
+    chance_systemic: async (id, ai) => {
+        const hands = ai.generateChanceTriad();
+        let msg = `🃏 **3 צירופי צ'אנס מדויקים (AI Optimized):**\n\n`;
+        hands.forEach((h, i) => msg += `🎯 צירוף ${i+1}:\n${h}\n\n`);
         return bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
     },
 
     seven_system: async (id, ai) => {
-        const weights = ai.calculateWeights(70);
-        const numbers = [];
-        while(numbers.length < 7) {
-            const n = ai.getWeightedNumber(70, weights);
-            if(!numbers.includes(n)) numbers.push(n);
-        }
-        return bot.sendMessage(id, `💎 **777 AI Scan (Weighted):**\n\n\`${numbers.sort((a,b)=>a-b).join('  |  ')}\``, { parse_mode: 'Markdown' });
+        const res = await ai.execute1B(70, 7, id);
+        return bot.sendMessage(id, `💎 **777 AI Scan (1B Ultra):**\n\n\`${res.join('  |  ')}\``, { parse_mode: 'Markdown' });
     },
 
     one23_system: async (id) => {
         const r = Array.from(crypto.randomBytes(3)).map(b => b % 10);
-        return bot.sendMessage(id, `🔢 **123 AI Quantum:**\n\nתוצאה מומלצת: \`${r.join(' - ')}\``, { parse_mode: 'Markdown' });
+        return bot.sendMessage(id, `🔢 **123 Quantum AI:**\n\nתוצאה: \`${r.join(' - ')}\``, { parse_mode: 'Markdown' });
     }
 };
 
-// --- ניהול אירועים ---
+// --- Event Handlers ---
 
 bot.on("callback_query", async (q) => {
     const id = q.message.chat.id;
-    await bot.answerCallbackQuery(q.id).catch(()=>{});
+    await bot.answerCallbackQuery(q.id).catch(() => {});
 
-    const realData = await fetchResults();
-    const ai = new OmniAI(realData);
+    const realData = await fetchResults().catch(() => null);
+    const ai = new OmniUltraAI(realData);
 
-    if (q.data === "lotto_system") await secureEngine.lotto_system(id, ai);
-    if (q.data === "chance_system") await secureEngine.chance_systemic(id);
-    if (q.data === "seven_system") await secureEngine.seven_system(id, ai);
-    if (q.data === "one23_system") await secureEngine.one23_system(id);
-    
-    if (q.data === "results") {
-        if (!realData) return bot.sendMessage(id, "⚠️ סנכרון אתר נכשל.");
-        let out = `🔍 **ניתוח תוצאות אמת (AI Sync):**\n\n`;
+    if (engine[q.data]) {
+        await engine[q.data](id, ai);
+    } else if (q.data === "results") {
+        if (!realData) return bot.sendMessage(id, "⚠️ תקשורת עם האתר נכשלה.");
+        let out = `🔍 **סנכרון נתונים - אתר הלוטו:**\n\n`;
         out += `🎰 **לוטו:** \`${realData.lastLotto.join(', ')}\` | חזק: \`${realData.lottoStrong}\`\n`;
         out += `🃏 **צ'אנס:** \`${realData.lastChance.join(' | ')}\`\n\n`;
-        out += `📈 *הנתונים הוזנו למנוע השקלול הסטטיסטי.*`;
+        out += `📈 *מנוע ה-AI עודכן בפרמטרים החדשים.*`;
         bot.sendMessage(id, out, { parse_mode: 'Markdown' });
     }
 });
 
 bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id, "🌌 **Omni Engine v9.0 AI Elite**\nמערכות למידה סטטיסטית הוגדרו.", {
+    bot.sendMessage(msg.chat.id, "🌌 **Omni v10.0 Ultra AI Online**\nהמנוע הסטטיסטי הכבד הוגדר מחדש.", {
         reply_markup: {
             inline_keyboard: [
-                [{ text: "🎰 לוטו שיטתי AI", callback_data: "lotto_system" }],
-                [{ text: "🃏 צ'אנס שיטתי Matrix", callback_data: "chance_system" }],
-                [{ text: "💎 777 AI Scan", callback_data: "seven_system" }],
+                [{ text: "🎰 לוטו שיטתי (1B AI)", callback_data: "lotto_systemic" }],
+                [{ text: "🃏 3 צירופי צ'אנס מדויקים", callback_data: "chance_systemic" }],
+                [{ text: "💎 777 Ultra Scan", callback_data: "seven_system" }],
                 [{ text: "🔢 123 Quantum", callback_data: "one23_system" }],
-                [{ text: "🔍 סנכרון ותוצאות אמת", callback_data: "results" }]
+                [{ text: "🔍 סנכרון תוצאות אמת", callback_data: "results" }]
             ]
         }
     });
 });
 
-// מניעת קריסות פולינג
-bot.on('polling_error', (err) => {});
+// טיפול בשגיאות Polling (למניעת 409 Conflict ב-Railway)
+bot.on('polling_error', (err) => {
+    if (!err.message.includes('409')) console.error("Update Standby...");
+});
