@@ -5,58 +5,51 @@ const fetchResults = require('./lottoScraper');
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-/**
- * 🕵️‍♂️ PRIVATE CORE ENGINE: Ultra-Fast Probability Simulation
- * המנוע מבצע מיליון חישובים בשבריר שנייה. הסוג והלוגיקה נשארים חסויים.
- */
-function runInternalCore(maxNum, count) {
-    let scores = {};
+// מנוע ליבה - חישוב הסתברות נערמת (מיליון הרצות בשבריר שנייה)
+function _core(m, c) {
+    let s = {};
     for (let i = 0; i < 1000000; i++) {
-        let n = Math.floor(Math.random() * maxNum) + 1;
-        scores[n] = (scores[n] || 0) + 1;
+        let n = Math.floor(Math.random() * m) + 1;
+        s[n] = (s[n] || 0) + 1;
     }
-    return Object.keys(scores)
-        .sort((a, b) => scores[b] - scores[a])
-        .slice(0, count)
-        .map(Number).sort((a, b) => a - b);
+    return Object.keys(s).sort((a, b) => s[b] - s[a]).slice(0, c).map(Number).sort((a, b) => a - b);
 }
 
-const aiLogic = {
+const engine = {
     lotto: () => {
-        const nums = runInternalCore(37, 6);
-        const strong = Math.floor(Math.random() * 7) + 1;
-        return `🎰 **לוטו (אלגוריתם Statisfy):**\nמספרים: ${nums.join(', ')}\n🔢 חזק: ${strong}`;
+        const n = _core(37, 6);
+        const s = Math.floor(Math.random() * 7) + 1;
+        return `🎰 **לוטו:**\nמספרים: ${n.join(', ')}\n🔢 חזק: ${s}`;
     },
-    // לוטו שיטתי לפי הגדרות האתר (שיטתי 8)
     systematic: () => {
-        const nums = runInternalCore(37, 8);
-        return `📝 **לוטו שיטתי 8 (אלגוריתם מורחב):**\nמספרים: ${nums.join(', ')}\n*שיטה זו מכסה 28 צירופים אפשריים!*`;
+        const n = _core(37, 8);
+        return `📝 **לוטו שיטתי 8:**\nמספרים: ${n.join(', ')}\n*הטופס מכסה 28 צירופים*`;
     },
     chance: () => {
-        const suits = ["♣️", "♦️", "♥️", "♠️"];
-        const values = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-        const pick = suits.map(s => values[Math.floor(Math.random() * values.length)] + s).join(' | ');
-        return `🃏 **צ'אנס VIP (חיזוי סדרות):**\nצירוף: ${pick}`;
+        const u = ["♣️", "♦️", "♥️", "♠️"];
+        const v = ["7", "8", "9", "10", "J", "Q", "K", "A"];
+        const p = u.map(s => v[Math.floor(Math.random() * v.length)] + s).join(' | ');
+        return `🃏 **צ'אנס VIP:**\nצירוף: ${p}`;
     },
-    triple7: () => {
-        const nums = runInternalCore(70, 17);
-        return `💎 **777 (ניתוח עומק):**\n${nums.join(', ')}`;
+    seven: () => {
+        const n = _core(70, 17);
+        return `💎 **777:**\n${n.join(', ')}`;
     },
     one23: () => {
         const n = [1, 2, 3].map(() => Math.floor(Math.random() * 10));
-        return `🔢 **123 (מהיר):**\nתוצאה: ${n.join('-')}`;
+        return `🔢 **123:**\nתוצאה: ${n.join('-')}`;
     }
 };
 
 bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id, "🚀 **Statisfy AI v3.0 - מנוע חיזוי פעיל**\nכל הלחיצות מוגנות ומחושבות ע\"י אלגוריתם ההסתברות המהיר בעולם.", {
+    bot.sendMessage(msg.chat.id, "🎯 **מערכת Statisfy - מנוע חיזוי פעיל**", {
         reply_markup: {
             inline_keyboard: [
-                [{ text: "🎰 לוטו AI", callback_data: "lotto" }, { text: "📝 לוטו שיטתי", callback_data: "systematic" }],
+                [{ text: "🎰 לוטו", callback_data: "lotto" }, { text: "📝 לוטו שיטתי", callback_data: "systematic" }],
                 [{ text: "🃏 צ'אנס VIP", callback_data: "chance" }],
-                [{ text: "💎 משחק 777", callback_data: "triple7" }, { text: "🔢 משחק 123", callback_data: "one23" }],
-                [{ text: "📊 ניתוח כדאיות קופה", callback_data: "analyze" }],
-                [{ text: "🔍 תוצאות אמת מהאתר", callback_data: "results" }]
+                [{ text: "💎 משחק 777", callback_data: "seven" }, { text: "🔢 משחק 123", callback_data: "one23" }],
+                [{ text: "📊 ניתוח קופה", callback_data: "analyze" }],
+                [{ text: "🔍 תוצאות אמת", callback_data: "results" }]
             ]
         }
     });
@@ -64,23 +57,24 @@ bot.onText(/\/start/, (msg) => {
 
 bot.on("callback_query", async (q) => {
     const id = q.message.chat.id;
-    bot.answerCallbackQuery(q.id);
+    const d = q.data;
+    bot.answerCallbackQuery(q.id); // מונע תקיעה של הכפתור
 
-    if (aiLogic[q.data]) {
-        return bot.sendMessage(id, aiLogic[q.data]());
+    if (engine[d]) {
+        return bot.sendMessage(id, engine[d]());
     }
 
-    if (q.data === "results") {
-        const res = await fetchResults(); // מושך את הנתונים מהסקרייפר
-        let msg = `✅ **תוצאות אחרונות מהאתר:**\n\n`;
-        msg += `🎰 **לוטו:** ${res[0].join(', ')}\n`;
-        msg += `🃏 **דאבל:** ${res[1].join(', ')}`;
-        bot.sendMessage(id, msg);
+    if (d === "results") {
+        const r = await fetchResults();
+        let m = `✅ **תוצאות אחרונות מהאתר:**\n\n`;
+        m += `🎰 **לוטו:** ${r[0].join(', ')}\n`;
+        m += `🃏 **דאבל:** ${r[1].join(', ')}`;
+        bot.sendMessage(id, m);
     }
 
-    if (q.data === "analyze") {
-        const ai = new JackpotAI();
-        const analysis = ai.analyze(28000000); 
-        bot.sendMessage(id, `🧠 **ניתוח קופה:**\nציון Z: ${analysis.z.toFixed(2)}\nהמלצה: ${analysis.overlay ? "🔥 כדאי לשחק!" : "⌛ חכה"}`);
+    if (d === "analyze") {
+        const j = new JackpotAI();
+        const a = j.analyze(28000000); 
+        bot.sendMessage(id, `🧠 **סטטוס קופה:**\nציון: ${a.z.toFixed(2)}\nמצב: ${a.overlay ? "🔥 כדאי לשחק!" : "⌛ המתנה"}`);
     }
 });
