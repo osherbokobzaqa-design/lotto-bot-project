@@ -1,4 +1,6 @@
-{
+"scripts": {
+  "start": "node ultimateBot.js"
+}
   "name": "ai-lotto-bot",
   "version": "1.0.0",
   "main": "bot/ultimateBot.js",
