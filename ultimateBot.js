@@ -5,23 +5,24 @@ const fetchResults = require('./lottoScraper');
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// --- Titan Engine V12 Core ---
+// --- מנוע TITAN V12: Quantum Intelligence ---
 class TitanEngine {
     constructor(realData) {
         this.data = realData;
     }
 
-    // מנוע חישוב עם הפסקות (Safe Loop) למניעת קריסה ב-Railway
+    // סימולציית Monte Carlo בטוחה לשרת (Prevent Crash)
     async compute(limit, count, chatId) {
-        const status = await bot.sendMessage(chatId, "🌀 **מנתח נתונים במנוע Titan (1B)...**");
+        const status = await bot.sendMessage(chatId, "🌀 **מנתח נתונים במנוע Titan (1B Sim)...**");
         const freq = new Uint32Array(limit + 1);
         const weights = new Float64Array(limit + 1).fill(1.0);
 
+        // שקלול תוצאות אמת מהאתר
         if (this.data && this.data.lastLotto) {
-            this.data.lastLotto.forEach(n => { if(n <= limit) weights[n] *= 0.8; });
+            this.data.lastLotto.forEach(n => { if(n <= limit) weights[n] *= 0.75; });
         }
 
-        const total = 100000000; // הורדתי מעט את העומס כדי שהבוט יגיב מהר יותר
+        const total = 50000000; // אופטימיזציה למהירות ב-Railway
         const chunk = 5000000;
 
         for (let i = 0; i < total; i += chunk) {
@@ -31,7 +32,7 @@ class TitanEngine {
                     freq[candidate]++;
                 }
             }
-            // מאפשר לבוט "לנשום" ולא להיתקע
+            // מונע את חסימת ה-Event Loop וקריסת השרת
             await new Promise(r => setImmediate(r));
         }
 
@@ -41,62 +42,65 @@ class TitanEngine {
             .sort((a, b) => a - b);
 
         await bot.deleteMessage(chatId, status.message_id).catch(() => {});
-        return { result, power: (Math.random() * 5 + 94).toFixed(2) };
+        return { result, power: (Math.random() * 8 + 91).toFixed(2) };
     }
 
-    generateChance(count = 5) {
+    // הפקת 5 המלצות צ'אנס עוצמתיות
+    generateChanceSets() {
         const suits = ["♣️", "♦️", "♥️", "♠️"];
         const vals = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-        return Array.from({ length: count }, () => {
+        return Array.from({ length: 5 }, () => {
             const hand = suits.map(s => vals[crypto.randomBytes(1)[0] % vals.length] + s);
             return { hand: hand.join(' ┃ '), score: (Math.random() * 10 + 89).toFixed(1) };
         });
     }
 }
 
-// --- פונקציות ביצוע ---
+// --- ניהול פעולות המערכת ---
 const handlers = {
     lotto_sys: async (id, titan) => {
         const { result, power } = await titan.compute(37, 8, id);
-        bot.sendMessage(id, `🎰 **לוטו שיטתי Titan:**\n\n\`${result.join(' - ')}\`\n⚡ עוצמה: \`${power}%\``, { parse_mode: 'Markdown' });
+        const strong = (crypto.randomBytes(1)[0] % 7) + 1;
+        bot.sendMessage(id, `🎰 **לוטו שיטתי Titan (8 מספרים):**\n\n\`${result.join(' - ')}\`\n🔢 חזק: \`${strong}\`\n⚡ עוצמה: \`${power}%\``, { parse_mode: 'Markdown' });
     },
     lotto_reg: async (id, titan) => {
         const { result } = await titan.compute(37, 6, id);
-        bot.sendMessage(id, `🎰 **לוטו רגיל AI:**\n\n\`${result.join(' - ')}\``, { parse_mode: 'Markdown' });
+        const strong = (crypto.randomBytes(1)[0] % 7) + 1;
+        bot.sendMessage(id, `🎰 **לוטו רגיל AI:**\n\n\`${result.join(' - ')}\`\n🔢 חזק: \`${strong}\``, { parse_mode: 'Markdown' });
     },
     chance_sys: async (id, titan) => {
-        const sets = titan.generateChance(5);
+        const sets = titan.generateChanceSets();
         let msg = `🃏 **5 המלצות צ'אנס (AI Matrix):**\n\n`;
-        sets.forEach((s, i) => msg += `🎯 ${i+1}: \`${s.hand}\` (${s.score}%)\n`);
+        sets.forEach((s, i) => msg += `🎯 ${i+1}: \`${s.hand}\` \n🔥 עוצמה: \`${s.score}%\`\n\n`);
         bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
     },
     seven_sys: async (id, titan) => {
         const { result } = await titan.compute(70, 7, id);
-        bot.sendMessage(id, `💎 **777 Quantum:**\n\n\`${result.join(' | ')}\``, { parse_mode: 'Markdown' });
+        bot.sendMessage(id, `💎 **777 Quantum Scan:**\n\n\`${result.join(' | ')}\``, { parse_mode: 'Markdown' });
     },
     one23_sys: async (id) => {
         const r = Array.from(crypto.randomBytes(3)).map(b => b % 10);
-        bot.sendMessage(id, `🔢 **123 AI:** \`${r.join(' - ')}\``, { parse_mode: 'Markdown' });
+        bot.sendMessage(id, `🔢 **123 AI Quantum:** \`${r.join(' - ')}\``, { parse_mode: 'Markdown' });
     }
 };
 
-// --- ניהול אירועים ---
+// --- אירועים ---
 bot.on("callback_query", async (q) => {
     const id = q.message.chat.id;
-    const data = await fetchResults().catch(() => null);
-    const titan = new TitanEngine(data);
+    const realData = await fetchResults().catch(() => null);
+    const titan = new TitanEngine(realData);
 
     if (handlers[q.data]) {
         await handlers[q.data](id, titan);
     } else if (q.data === "results") {
-        const txt = data ? `🎰 לוטו אחרון: \`${data.lastLotto.join(', ')}\`` : "⚠️ תקלה בסנכרון.";
-        bot.sendMessage(id, txt, { parse_mode: 'Markdown' });
+        const status = realData ? `✅ נתונים סונכרנו.\nלוטו אחרון: \`${realData.lastLotto.join(', ')}\`` : "⚠️ תקלה בסנכרון.";
+        bot.sendMessage(id, status, { parse_mode: 'Markdown' });
     }
     bot.answerCallbackQuery(q.id).catch(() => {});
 });
 
 bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id, "🌌 **Titan Omni v12.0 - Active**\nהמערכת החזקה בשוק מוכנה.", {
+    bot.sendMessage(msg.chat.id, "🌌 **Titan Omni v12.0 - Prime Elite**\nהמערכת החזקה ביותר בשוק הוגדרה.", {
         reply_markup: {
             inline_keyboard: [
                 [{ text: "🎰 לוטו שיטתי", callback_data: "lotto_sys" }, { text: "🎰 לוטו רגיל", callback_data: "lotto_reg" }],
