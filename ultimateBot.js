@@ -3,6 +3,31 @@ const crypto = require('crypto');
 const JackpotAI = require('./jackpotAI'); 
 const fetchResults = require('./lottoScraper'); 
 
+const TelegramBot = require('node-telegram-bot-api');
+const fetchResults = require('./lottoScraper');
+
+const token = process.env.TELEGRAM_TOKEN;
+const bot = new TelegramBot(token, { polling: true });
+
+// כאן היה ה-await שגרם לקריסה - מחקנו אותו.
+
+bot.on("callback_query", async (q) => {
+    const id = q.message.chat.id;
+    await bot.answerCallbackQuery(q.id).catch(() => {});
+
+    if (q.data === "results") {
+        const res = await fetchResults(); // כאן ה-await תקין כי הפונקציה היא async
+        if (!res) return bot.sendMessage(id, "⚠️ נתוני האתר לא זמינים.");
+
+        let msg = `🔍 **תוצאות אמת (הגרלה #${res.lottoNum}):**\n\n`;
+        msg += `🎰 **לוטו:** \`${res.lastLotto.join(' - ')}\`\n`;
+        msg += `🔢 **חזק:** \`${res.lottoStrong}\`\n\n`;
+        msg += `🃏 **צ'אנס:** \`${res.lastChance.join(' | ')}\``;
+
+        bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
+    }
+});
+
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
