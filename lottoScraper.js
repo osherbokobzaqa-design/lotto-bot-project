@@ -1,37 +1,52 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+/**
+ * מנוע שאיבת נתונים Elite v1.0
+ * מותאם למבנה האובייקטים של בוט ה-OMNI
+ */
 async function fetchResults() {
     try {
-        // כתובת האתר של מפעל הפיס (או API אחר שאתה משתמש בו)
-        const { data } = await axios.get('https://www.pais.co.il/lotto/last_results.aspx', {
-            timeout: 5000 // הגנה מפני Timeout שחונק את ה-Event Loop
+        const url = 'https://www.pais.co.il/lotto/last_results.aspx';
+        const { data } = await axios.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            timeout: 8000 
         });
+
         const $ = cheerio.load(data);
 
-        // שליפת מספרי הלוטו (דוגמה למבנה סלקטורים)
-        const lottoNumbers = [];
+        // שליפת מספר הגרלה - קריטי לדיוק שביקשת
+        const lottoNum = $('.draw_number').first().text().trim().replace(/\D/g, '') || "0000";
+
+        // עיבוד מספרי לוטו - ניקוי רווחים ומניעת שגיאות join
+        const lastLotto = [];
         $('.lotto_num').each((i, el) => {
-            const num = $(el).text().trim();
-            if (num) lottoNumbers.push(parseInt(num));
+            const val = $(el).text().trim();
+            if (val) lastLotto.push(val);
         });
 
-        // שליפת מספר חזק
-        const strongNum = parseInt($('.strong_num').text().trim()) || 0;
+        // שליפת נתוני צ'אנס (בהתאם למבנה האתר)
+        const chanceNum = $('.chance_draw_num').first().text().trim().replace(/\D/g, '') || "0000";
+        const lastChance = [];
+        $('.chance_card').each((i, el) => {
+            const card = $(el).text().trim();
+            if (card) lastChance.push(card);
+        });
 
-        // בניית האובייקט שהבוט מצפה לו
         return {
-            lottoNum: $('.draw_number').first().text().replace(/\D/g, '') || "0000",
-            lastLotto: lottoNumbers.length > 0 ? lottoNumbers : [0,0,0,0,0,0],
-            lottoStrong: strongNum,
-            chanceNum: $('.chance_draw_num').text().trim() || "0000",
-            lastChance: ["?", "?", "?", "?"], // כאן תכניס את הלוגיקה של הצ'אנס
-            sevenNum: "0000",
-            last777: []
+            success: true,
+            lottoNum,
+            lastLotto: lastLotto.length ? lastLotto : ["?", "?", "?", "?", "?", "?"],
+            lottoStrong: $('.strong_num').text().trim() || "?",
+            chanceNum,
+            lastChance: lastChance.length ? lastChance : ["-", "-", "-", "-"],
+            sevenNum: $('.seven_draw_num').text().trim().replace(/\D/g, '') || "0",
+            last777: [] // ניתן להוסיף לוגיקת שאיבה ל-777 כאן
         };
+
     } catch (error) {
-        console.error("Scraper Engine Error:", error.message);
-        return null; // מחזירים null כדי שהבוט ידע לא לנסות לעשות .join()
+        console.error("Critical Scraper Error:", error.message);
+        return { success: false, lastLotto: [], lastChance: [] }; // מונע קריסת join
     }
 }
 
