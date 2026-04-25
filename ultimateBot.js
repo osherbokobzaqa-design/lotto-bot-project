@@ -2,18 +2,6 @@ const TelegramBot = require('node-telegram-bot-api');
 const crypto = require('crypto');
 const JackpotAI = require('./jackpotAI'); 
 const fetchResults = require('./lottoScraper'); 
-if (q.data === "results") {
-    const res = await fetchResults();
-    if (!res) return bot.sendMessage(id, "⚠️ שגיאת סנכרון");
-
-    let out = `🔍 **תוצאות אמת (הגרלה #${res.lottoNum}):**\n\n`;
-    out += `🎰 **לוטו:** \`${res.lastLotto.join(' - ')}\` | חזק: \`${res.lottoStrong}\`\n\n`;
-    // סידור קלפים עם רווחים
-    out += `🃏 **צ'אנס:** \`${res.lastChance.join('  |  ')}\`\n\n`;
-    out += `🕒 *עודכן: ${new Date().toLocaleTimeString('he-IL')}*`;
-
-    bot.sendMessage(id, out, { parse_mode: 'Markdown' });
-}
 
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
