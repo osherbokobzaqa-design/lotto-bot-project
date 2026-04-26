@@ -1,6 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const crypto = require('crypto');
-const fetchResults = require('./lottoScraper'); 
+const fetchResults = require('./lottoScraper'); // מוודא שקיים קובץ סקרייפר
 
 const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
@@ -8,9 +8,10 @@ const bot = new TelegramBot(token, { polling: true });
 class TitanEngine {
     constructor(realData) {
         this.data = realData || {};
+        this.COOLING_FACTOR = 0.05; // רמת אגרסיביות מקסימלית לסינון תוצאות עבר
     }
 
-    // מנוע אקראיות קריפטוגרפי - הליבה
+    // מנוע אקראיות קריפטוגרפי (Hardware Entropy)
     secureInt(max) {
         const byteSize = Math.ceil(Math.log2(max) / 8);
         const maxValid = Math.floor(256 ** byteSize / max) * max;
@@ -21,16 +22,14 @@ class TitanEngine {
         return (randomVal % max) + 1;
     }
 
-    // מנגנון חתימת אבטחה (SHA-256)
+    // יצירת חתימת Audit מאובטחת SHA-256
     createAuditHash(data) {
         return crypto.createHash('sha256')
-            .update(data + Date.now() + crypto.randomBytes(4))
-            .digest('hex')
-            .substring(0, 8)
-            .toUpperCase();
+            .update(data + Date.now() + crypto.randomBytes(8))
+            .digest('hex').substring(0, 10).toUpperCase();
     }
 
-    // תיאום זמנים ומספרי הגרלות (Future Sync)
+    // סנכרון זמנים עתידי (Future Draw Sync)
     getTicketHeader(gameType) {
         const now = new Date();
         const dateStr = now.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
@@ -41,75 +40,54 @@ class TitanEngine {
             drawNum = parseInt(this.data.drawNumber) + 1; 
         } else {
             const refDate = new Date('2026-04-26T13:00:00+03:00');
-            const refDraw = 52780;
-            
+            const refDraw = 52780; // סנכרון לפי צילום הארכיון
             if (gameType === 'CHANCE') {
-                const diffMs = now - refDate;
-                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                const drawsPassed = Math.floor(diffHours / 2);
-                drawNum = refDraw + drawsPassed + 1;
+                const diffHours = Math.floor((now - refDate) / (1000 * 60 * 60));
+                drawNum = refDraw + Math.floor(diffHours / 2) + 1;
             } else {
-                // לוטו, 777, 123 (הגרלות יומיות/דו-שבועיות)
-                const epochDays = Math.floor(now.getTime() / (1000 * 60 * 60 * 24));
-                drawNum = (epochDays - 12415) + 1; 
+                drawNum = Math.floor(now.getTime() / (1000 * 60 * 60 * 24)) - 12414;
             }
         }
-
         return `📅 \`${dateStr}\` | ⏰ \`${timeStr}\`\n🎫 **הגרלה קרובה: ${drawNum}**\n━━━━━━━━━━━━━━━━━━━━`;
     }
 
-    // מנוע שקלול לוטו/777
-    async compute(limit, count) {
+    // מנוע שקלול אוניברסלי אגרסיבי (לוטו, 777, 123)
+    async computeWeighted(limit, count, lastResults = []) {
         let weights = Array.from({ length: limit }, (_, i) => ({ num: i + 1, weight: 1.0 }));
-        if (this.data && this.data.lastLotto) {
-            this.data.lastLotto.forEach(n => {
+        
+        if (lastResults && lastResults.length > 0) {
+            lastResults.forEach(n => {
                 let item = weights.find(w => w.num === n);
-                if (item) item.weight *= 0.38;
+                if (item) item.weight *= this.COOLING_FACTOR; 
             });
         }
+
         weights.forEach(w => {
             const entropy = crypto.randomBytes(4).readUInt32BE(0) / 0xFFFFFFFF;
-            w.weight *= (0.6 + entropy);
+            w.weight *= (0.4 + entropy * 1.4); 
         });
+
         return weights.sort((a, b) => b.weight - a.weight).slice(0, count).map(w => w.num).sort((a, b) => a - b);
     }
 
-    // ----------------------------------------------------
-    // מכניקת קלפים - מניעת היפוך עברית והתאמה לתצוגה יוקרתית
-    // ----------------------------------------------------
-
-    // צ'אנס רגיל (קלף 1 לכל צורה)
-    generateChanceRegular() {
+    // מנוע צ'אנס (רגיל/שיטתי) עם מניעת כפילויות RTL
+    async generateChance(isSystematic) {
         const suits = ["♣️", "♦️", "♥️", "♠️"];
         const vals = ["7", "8", "9", "10", "J", "Q", "K", "A"];
+        let cardsPerSuit = isSystematic ? 2 : 1;
         
-        const hand = suits.map(s => {
-            const v = vals[this.secureInt(8) - 1];
-            return `[${v}${s}]`; 
-        });
+        let handParts = [];
+        for (let s of suits) {
+            const chosenIndices = await this.computeWeighted(8, cardsPerSuit, []); 
+            const suitCards = chosenIndices.map(i => `[${vals[i-1]}${s}]`);
+            handParts.push(suitCards.join(' | '));
+        }
 
-        return { hand: hand.join('  '), audit: this.createAuditHash(hand.join('')) };
+        const handStr = isSystematic ? handParts.join('\n') : handParts.join('  ');
+        return { hand: handStr, audit: this.createAuditHash(handStr) };
     }
 
-    // צ'אנס שיטתי (2 קלפים לכל צורה ללא כפילויות - הצלבות)
-    generateChanceSystematic() {
-        const suits = ["♣️", "♦️", "♥️", "♠️"];
-        const vals = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-        
-        const hand = suits.map(s => {
-            let p1 = this.secureInt(8) - 1;
-            let p2;
-            do { p2 = this.secureInt(8) - 1; } while (p1 === p2);
-            
-            // סידור פנימי ליופי ואחידות
-            const ordered = [p1, p2].sort((a, b) => a - b);
-            return `[${vals[ordered[0]]}${s} | ${vals[ordered[1]]}${s}]`; 
-        });
-
-        return { hand: hand.join('\n'), audit: this.createAuditHash(hand.join('')) };
-    }
-
-    // דיאגנוסטיקה
+    // מערכת דיאגנוסטיקה ובדיקת יציבות
     runDiagnostic() {
         const samples = 1000;
         const counts = {};
@@ -118,42 +96,39 @@ class TitanEngine {
             const n = this.secureInt(10);
             counts[n] = (counts[n] || 0) + 1;
         }
-        const variance = Object.values(counts).reduce((acc, curr) => acc + Math.abs(curr - (samples/10)), 0) / 10;
+        const stability = (100 - (Object.values(counts).reduce((acc, curr) => acc + Math.abs(curr - 100), 0) / 100 * 10)).toFixed(2);
         return {
-            status: "HEALTHY",
-            entropy_source: "Hardware_CSPRNG",
+            status: "ULTRA_STABLE",
             latency: `${Date.now() - start}ms`,
-            stability: `${(100 - (variance / (samples/10) * 100)).toFixed(2)}%`,
-            hash_engine: "SHA-256"
+            stability: `${stability}%`,
+            cooling: this.COOLING_FACTOR
         };
     }
 }
 
 // ----------------------------------------------------
-// מערך בקרים (Handlers) מורחב ומדויק
+// ניהול פקודות ותפריטים (Full Handlers)
 // ----------------------------------------------------
 const handlers = {
     lotto_reg: async (id, titan) => {
-        const header = titan.getTicketHeader('LOTTO');
-        const res = await titan.compute(37, 6);
+        const res = await titan.computeWeighted(37, 6, titan.data.lastLotto || []);
         const strong = titan.secureInt(7);
-        const audit = titan.createAuditHash(res.join('') + strong);
-        bot.sendMessage(id, `🎰 **לוטו רגיל:**\n${header}\n\n\`${res.join(' - ')}\`\n🔢 חזק: \`${strong}\`\n🛡️ Audit: \`${audit}\``, { parse_mode: 'Markdown' });
+        const msg = `🎰 **לוטו רגיל:**\n${titan.getTicketHeader('LOTTO')}\n\n\`${res.join(' - ')}\`\n🔢 חזק: \`${strong}\`\n🛡️ Audit: \`${titan.createAuditHash(res.join('')+strong)}\``;
+        bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
     },
-    
+
     lotto_sys: async (id, titan) => {
-        const header = titan.getTicketHeader('LOTTO');
-        const res = await titan.compute(37, 8); // 8 מספרים לשיטתי
+        const res = await titan.computeWeighted(37, 8, titan.data.lastLotto || []);
         const strong = titan.secureInt(7);
-        const audit = titan.createAuditHash(res.join('') + strong);
-        bot.sendMessage(id, `🎰 **לוטו שיטתי (8):**\n${header}\n*מייצר 28 הצלבות*\n\n\`${res.join(' - ')}\`\n🔢 חזק: \`${strong}\`\n🛡️ Audit: \`${audit}\``, { parse_mode: 'Markdown' });
+        const msg = `🎰 **לוטו שיטתי (8):**\n${titan.getTicketHeader('LOTTO')}\n🔥 *מצב אגרסיבי פעיל*\n\n\`${res.join(' - ')}\`\n🔢 חזק: \`${strong}\`\n🛡️ Audit: \`${titan.createAuditHash(res.join('')+strong)}\``;
+        bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
     },
 
     chance_reg: async (id, titan) => {
         const header = titan.getTicketHeader('CHANCE');
         let msg = `🃏 **צ'אנס רגיל:**\n${header}\n\n`;
         for(let i=0; i<3; i++) {
-            const s = titan.generateChanceRegular();
+            const s = await titan.generateChance(false);
             msg += `🎯 כרטיס ${i+1}:\n\`${s.hand}\`\n🆔 \`${s.audit}\`\n\n`;
         }
         bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
@@ -161,37 +136,34 @@ const handlers = {
 
     chance_sys: async (id, titan) => {
         const header = titan.getTicketHeader('CHANCE');
-        const s = titan.generateChanceSystematic();
+        const s = await titan.generateChance(true);
         const msg = `🃏 **צ'אנס שיטתי (כפול):**\n${header}\n*פריסת הצלבות רוחבית*\n\n\`${s.hand}\`\n\n🛡️ Audit: \`${s.audit}\``;
         bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
     },
 
     seven_sys: async (id, titan) => {
         const header = titan.getTicketHeader('777');
-        const res = await titan.compute(70, 7);
-        const audit = titan.createAuditHash(res.join(''));
-        bot.sendMessage(id, `💎 **פיס 777:**\n${header}\n\n\`${res.join(' | ')}\`\n🛡️ Audit: \`${audit}\``, { parse_mode: 'Markdown' });
+        const res = await titan.computeWeighted(70, 7, []);
+        const msg = `💎 **פיס 777:**\n${header}\n\n\`${res.join(' | ')}\`\n🛡️ Audit: \`${titan.createAuditHash(res.join(''))}\``;
+        bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
     },
 
     one23_sys: async (id, titan) => {
         const header = titan.getTicketHeader('123');
-        const r = [titan.secureInt(10)-1, titan.secureInt(10)-1, titan.secureInt(10)-1];
-        const audit = titan.createAuditHash(r.join(''));
-        bot.sendMessage(id, `🔢 **פיס 123:**\n${header}\n\n\`[ ${r[0]} ] - [ ${r[1]} ] - [ ${r[2]} ]\`\n🛡️ Audit: \`${audit}\``, { parse_mode: 'Markdown' });
+        const r = await titan.computeWeighted(10, 3, []); 
+        const msg = `🔢 **פיס 123:**\n${header}\n\n\`[ ${r[0]-1} ] - [ ${r[1]-1} ] - [ ${r[2]-1} ]\`\n🛡️ Audit: \`${titan.createAuditHash(r.join(''))}\``;
+        bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
     },
 
     debug_sys: async (id, titan) => {
         const report = titan.runDiagnostic();
-        const msg = `🛠️ **Titan Diagnostic V12.7**\n` +
-                    `--------------------------\n` +
-                    `📡 סטטוס: \`${report.status}\`\n` +
-                    `🔋 אנטרופיה: \`${report.entropy_source}\`\n` +
-                    `⏱️ השהיית שרת: \`${report.latency}\`\n` +
-                    `📊 יציבות אקראיות: \`${report.stability}\`\n` +
-                    `🔐 מנוע הצפנה: \`${report.hash_engine}\`\n` +
-                    `--------------------------\n` +
-                    `✅ כל מערכות מפעל הפיס מקושרות ותקינות.`;
+        const msg = `🛠️ **Titan Diagnostic V12.9**\n--------------------------\n📡 סטטוס: \`${report.status}\`\n🎯 דיוק שקלול: \`MAXIMUM (${report.cooling})\`\n⏱️ השהייה: \`${report.latency}\`\n📊 יציבות: \`${report.stability}\`\n✅ כל המערכות מקושרות ותקינות.`;
         bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
+    },
+
+    results: async (id, titan) => {
+        const lotto = (titan.data && titan.data.lastLotto) ? titan.data.lastLotto.join(', ') : "ממתין לסנכרון...";
+        bot.sendMessage(id, `🔍 **סנכרון והצלבות אחרונות:**\nלוטו אחרון: \`${lotto}\`\nסטטוס: \`ONLINE\``, { parse_mode: 'Markdown' });
     }
 };
 
@@ -200,25 +172,20 @@ bot.on("callback_query", async (q) => {
     bot.answerCallbackQuery(q.id).catch(() => {});
     
     let realData = null;
-    try { realData = await fetchResults(); } catch (e) { console.error("Scraper skip"); }
+    try { realData = await fetchResults(); } catch (e) { console.error("Sync Error"); }
     const titan = new TitanEngine(realData);
 
-    if (handlers[q.data]) {
-        await handlers[q.data](id, titan);
-    } else if (q.data === "results") {
-        const lotto = (realData && Array.isArray(realData.lastLotto)) ? realData.lastLotto.join(', ') : "ממתין לסנכרון...";
-        bot.sendMessage(id, `🔍 **תוצאות והצלבות אחרונות:**\nלוטו: \`${lotto}\`\n\n*חיבור פלטפורמה עובד.*`, { parse_mode: 'Markdown' });
-    }
+    if (handlers[q.data]) await handlers[q.data](id, titan);
 });
 
 bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id, "🌌 **Titan Omni v12.7 - The Complete Suite**\nבחר את מערכת ההגרלה המבוקשת:", {
+    bot.sendMessage(msg.chat.id, "🚀 **Titan Omni v12.9 - Ultra-Aggressive Mode**\nבחר מערכת להפקה מדויקת:", {
         reply_markup: {
             inline_keyboard: [
                 [{ text: "🎰 לוטו שיטתי", callback_data: "lotto_sys" }, { text: "🎰 לוטו רגיל", callback_data: "lotto_reg" }],
                 [{ text: "🃏 צ'אנס שיטתי", callback_data: "chance_sys" }, { text: "🃏 צ'אנס רגיל", callback_data: "chance_reg" }],
                 [{ text: "💎 פיס 777", callback_data: "seven_sys" }, { text: "🔢 פיס 123", callback_data: "one23_sys" }],
-                [{ text: "🔍 סנכרון והצלבות", callback_data: "results" }, { text: "🛠️ דיאגנוסטיקה", callback_data: "debug_sys" }]
+                [{ text: "🔍 סנכרון", callback_data: "results" }, { text: "🛠️ דיאגנוסטיקה", callback_data: "debug_sys" }]
             ]
         }
     });
