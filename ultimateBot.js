@@ -63,16 +63,21 @@ class TitanEngine {
         return weights.sort((a, b) => b.weight - a.weight).slice(0, count).map(w => w.num).sort((a, b) => a - b);
     }
 
-    // מנוע צ'אנס מדויק
+    // מנוע צ'אנס מדויק - תוקן סידור קלפים ויזואלי
     generateChance() {
         const suits = ["♣️", "♦️", "♥️", "♠️"];
         const vals = ["7", "8", "9", "10", "J", "Q", "K", "A"];
-        const hand = suits.map(s => vals[this.secureInt(8) - 1] + s);
+        
+        // תיקון סדר: הצמדת הסמל למספר בתוך סוגריים למניעת היפוך בטלגרם
+        const hand = suits.map(s => {
+            const v = vals[this.secureInt(8) - 1];
+            return `[${v}${s}]`; 
+        });
+
         const audit = this.createAuditHash(hand.join(''));
         
         return { 
-            hand: hand.join(' ┃ '), 
-            score: (Math.random() * 4 + 95).toFixed(1),
+            hand: hand.join('  '), 
             audit: audit
         };
     }
@@ -117,12 +122,13 @@ const handlers = {
         const audit = titan.createAuditHash(res.join('') + strong);
         bot.sendMessage(id, `🎰 **לוטו רגיל:**\n${header}\n\n\`${res.join(' - ')}\`\n🔢 חזק: \`${strong}\`\n🛡️ Audit ID: \`${audit}\``, { parse_mode: 'Markdown' });
     },
+    // Handler צ'אנס מעודכן - פלט נקי ומיושר
     chance_sys: async (id, titan) => {
         const header = titan.getTicketHeader('CHANCE');
         let msg = `🃏 **המלצות צ'אנס:**\n${header}\n\n`;
         for(let i=0; i<3; i++) {
             const s = titan.generateChance();
-            msg += `🎯 כרטיס ${i+1}: \`${s.hand}\`\n🆔 משואב: \`${s.audit}\`\n\n`;
+            msg += `🎯 **כרטיס ${i+1}:**\n\`${s.hand}\`\n🆔 **Audit:** \`${s.audit}\`\n\n`;
         }
         bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
     },
