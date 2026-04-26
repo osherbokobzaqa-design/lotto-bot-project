@@ -1,11 +1,14 @@
 {
-  "name": "ai-lotto-bot",
-  "version": "1.0.0",
-  "main": "bot/ultimateBot.js",
+  "name": "titan-war-machine",
+  "version": "16.0.0",
+  "description": "High-Performance Lottery Analysis Bot",
+  "main": "ultimateBot.js",
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0",
-    "axios": "^1.6.0",
-    "cheerio": "^1.0.0",
-    "express": "^4.18.2"
+    "sqlite3": "^5.1.7",
+    "axios": "^1.6.0"
+  },
+  "scripts": {
+    "start": "node ultimateBot.js"
   }
 }
