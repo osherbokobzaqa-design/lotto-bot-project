@@ -8,30 +8,44 @@ const TOKEN = process.env.TELEGRAM_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 
 if (isMainThread) {
     const bot = new TelegramBot(TOKEN, { polling: true });
-    console.log("🚀 Titan Matrix V26.0: Active & Stable");
+    console.log("🚀 Titan Matrix V26.0: Dual-Source System Online");
 
     async function getArchive() {
         try {
-            // ניסיון לאתר את הקובץ גם אם השם השתנה מעט
             const files = fs.readdirSync(__dirname);
-            const csvFile = files.find(f => f.includes('סיכוי') && f.endsWith('.csv'));
+            // מוצא את כל קבצי ה-CSV שקשורים ל"סיכוי"
+            const csvFiles = files.filter(f => f.includes('סיכוי') && f.endsWith('.csv'));
             
-            if (!csvFile) {
-                console.error("❌ לא נמצא קובץ CSV בתיקייה!");
-                return [["0", "7", "8", "9", "10"]]; 
+            let combinedData = [];
+            let seenIds = new Set();
+
+            for (const file of csvFiles) {
+                const content = fs.readFileSync(path.join(__dirname, file), 'utf8');
+                const lines = content.trim().split('\n')
+                    .map(l => l.split(',').map(c => c.trim()))
+                    .filter(l => l.length >= 5);
+                
+                // איחוד נתונים ומניעת כפילויות לפי ה-ID של ההגרלה
+                lines.forEach(row => {
+                    if (!seenIds.has(row[0])) {
+                        combinedData.push(row);
+                        seenIds.add(row[0]);
+                    }
+                });
             }
 
-            const data = fs.readFileSync(path.join(__dirname, csvFile), 'utf8');
-            return data.trim().split('\n')
-                .map(l => l.split(',').map(c => c.trim()))
-                .filter(l => l.length >= 5);
+            // מיון הארכיון המאוחד לפי מספר הגרלה
+            combinedData.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+            return combinedData.length > 0 ? combinedData : [["0", "7", "8", "9", "10"]];
         } catch (e) {
+            console.error("❌ שגיאה באיחוד נתונים:", e.message);
             return [["0", "7", "8", "9", "10"]];
         }
     }
 
     bot.onText(/\/start/, (msg) => {
-        bot.sendMessage(msg.chat.id, "🛰️ **מערכת Titan מחוברת**\nהתוצאות יופיעו בסדר עולה (7-A).", {
+        bot.sendMessage(msg.chat.id, "🛰️ **מערכת Titan - מצב איחוד נתונים**\nסורק את כל קבצי ה-CSV ומפעיל 50 מנועי AI.", {
             reply_markup: {
                 inline_keyboard: [[{ text: "🎰 הפעל 50 מנועי AI", callback_data: "run_all" }]]
             }
@@ -51,7 +65,7 @@ if (isMainThread) {
     });
 
 } else {
-    // מנועי ה-AI נשארים ללא שינוי
+    // מנועי ה-AI נשארים ללא שינוי, מקבלים את הארכיון המאוחד
     const { archive } = workerData;
     const suits = ["♣️", "♦️", "♥️", "♠️"], vals = ["7","8","9","10","J","Q","K","A"];
     const entropy = () => crypto.randomBytes(4).readUInt32BE(0) / 0xFFFFFFFF;
@@ -77,7 +91,7 @@ if (isMainThread) {
             return { val: scores.sort((a,b) => b.w - a.w)[0].v, suit: suit };
         });
 
-        // הסידור שביקשת - מהקטן לגדול
+        // מיון הקלפים לפי הסדר שביקשת (7 עד A)
         handArray.sort((a, b) => valOrder[a.val] - valOrder[b.val]);
 
         let formattedHand = handArray.map(c => `[ ${c.val} ]${c.suit}`).join('  ');
