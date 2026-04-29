@@ -3,6 +3,13 @@ const TelegramBot = require('node-telegram-bot-api');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const bot = new TelegramBot(TOKEN, { 
+    polling: {
+        interval: 300,
+        autoStart: true,
+        params: { timeout: 10 }
+    } 
+});
 
 // טוקן ממערכת Railway
 const TOKEN = process.env.TELEGRAM_TOKEN || 'YOUR_BOT_TOKEN_HERE';
