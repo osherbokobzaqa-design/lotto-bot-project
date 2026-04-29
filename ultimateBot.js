@@ -52,14 +52,26 @@ if (isMainThread) {
     const { archive } = workerData;
     const suits = ["♣️", "♦️", "♥️", "♠️"];
     const vals = ["7","8","9","10","J","Q","K","A"];
+    
+    // 1. הוסף את השורה הזו (מגדירה למחשב ש-7 קטן מ-A)
     const valOrder = {"7":1, "8":2, "9":3, "10":4, "J":5, "Q":6, "K":7, "A":8};
     
     let results = [];
     for (let i = 0; i < 5; i++) {
-        // יצירת יד וסידור הקלפים לפי הערך שלהם
-        let hand = suits.map(s => {
-            return { v: vals[Math.floor(Math.random() * vals.length)], s: s };
-        });
+        let hand = [];
+        for (let j = 0; j < 4; j++) {
+            hand.push({ v: vals[Math.floor(Math.random() * vals.length)], s: suits[j] });
+        }
+        
+        // 2. השורה הזו מבצעת את המיון בפועל
+        hand.sort((a, b) => valOrder[a.v] - valOrder[b.v]);
+        
+        results.push(hand.map(c => c.v + c.s).join('  '));
+    }
+    const lastLine = archive[archive.length - 1];
+    parentPort.postMessage({ results, draw: lastLine[0] });
+}
+
 
         // פקודת המיון (הסדר)
         hand.sort((a, b) => valOrder[a.v] - valOrder[b.v]);
