@@ -1,1 +1,18 @@
 
+{
+  "ai_weights": {
+    "recent_draws_weight": 0.8,
+    "historical_draws_weight": 0.2,
+    "sliding_window_size": 50
+  },
+  "filters": {
+    "avoid_sequences": true,
+    "suit_balance": true,
+    "max_duplicates_per_hand": 1
+  },
+  "bot_settings": {
+    "default_suggestions_count": 5,
+    "confidence_base": 70,
+    "confidence_random_factor": 25
+  }
+}
