@@ -1,14 +1,22 @@
 {
-  "name": "titan-war-machine",
-  "version": "16.0.0",
-  "description": "High-Performance Lottery Analysis Bot",
-  "main": "ultimateBot.js",
-  "dependencies": {
-    "node-telegram-bot-api": "^0.66.0",
-    "sqlite3": "^5.1.7",
-    "axios": "^1.6.0"
-  },
+  "name": "titan-hyper-quantum",
+  "version": "26.0.0",
+  "description": "50-System Cluster AI for Probability Analysis",
+  "main": "server.js",
   "scripts": {
-    "start": "node ultimateBot.js"
+    "start": "node server.js",
+    "bot": "node ultimateBot.js",
+    "scrape": "node lottoScraper.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-telegram-bot-api": "^0.64.0"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
