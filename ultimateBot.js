@@ -8,28 +8,30 @@ const TOKEN = process.env.TELEGRAM_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 
 if (isMainThread) {
     const bot = new TelegramBot(TOKEN, { polling: true });
-    console.log("🚀 Titan Matrix V26.0: System Online");
+    console.log("🚀 Titan Matrix V26.0: Active & Stable");
 
     async function getArchive() {
         try {
-            const filePath = path.resolve(__dirname, 'סיכוי.csv');
-            if (!fs.existsSync(filePath)) {
-                console.error(`⚠️ קובץ לא נמצא: ${filePath}`);
+            // ניסיון לאתר את הקובץ גם אם השם השתנה מעט
+            const files = fs.readdirSync(__dirname);
+            const csvFile = files.find(f => f.includes('סיכוי') && f.endsWith('.csv'));
+            
+            if (!csvFile) {
+                console.error("❌ לא נמצא קובץ CSV בתיקייה!");
                 return [["0", "7", "8", "9", "10"]]; 
             }
-            const data = fs.readFileSync(filePath, 'utf8');
-            const lines = data.trim().split('\n')
+
+            const data = fs.readFileSync(path.join(__dirname, csvFile), 'utf8');
+            return data.trim().split('\n')
                 .map(l => l.split(',').map(c => c.trim()))
                 .filter(l => l.length >= 5);
-            return lines.length > 0 ? lines : [["0", "7", "8", "9", "10"]];
         } catch (e) {
-            console.error("❌ תקלה בקריאת הארכיון:", e.message);
             return [["0", "7", "8", "9", "10"]];
         }
     }
 
     bot.onText(/\/start/, (msg) => {
-        bot.sendMessage(msg.chat.id, "🛰️ **מערכת Titan מחוברת**\n50 מנועי AI מכויילים לסריקה גיאומטרית.", {
+        bot.sendMessage(msg.chat.id, "🛰️ **מערכת Titan מחוברת**\nהתוצאות יופיעו בסדר עולה (7-A).", {
             reply_markup: {
                 inline_keyboard: [[{ text: "🎰 הפעל 50 מנועי AI", callback_data: "run_all" }]]
             }
@@ -45,11 +47,11 @@ if (isMainThread) {
                 res.results.forEach((r, i) => response += `📍 הצעה ${i+1}: ${r}\n`);
                 bot.sendMessage(q.message.chat.id, response, { parse_mode: 'Markdown' });
             });
-            worker.on('error', (err) => console.error("Worker Error:", err));
         }
     });
 
 } else {
+    // מנועי ה-AI נשארים ללא שינוי
     const { archive } = workerData;
     const suits = ["♣️", "♦️", "♥️", "♠️"], vals = ["7","8","9","10","J","Q","K","A"];
     const entropy = () => crypto.randomBytes(4).readUInt32BE(0) / 0xFFFFFFFF;
@@ -66,7 +68,6 @@ if (isMainThread) {
     };
 
     let results = [];
-    // מפת סדר לקלפים לצורך מיון ויזואלי בלבד
     const valOrder = {"7":1, "8":2, "9":3, "10":4, "J":5, "Q":6, "K":7, "A":8};
 
     for (let i = 0; i < 5; i++) {
@@ -76,7 +77,7 @@ if (isMainThread) {
             return { val: scores.sort((a,b) => b.w - a.w)[0].v, suit: suit };
         });
 
-        // מיון ההצעה מהקטן לגדול לפני השליחה
+        // הסידור שביקשת - מהקטן לגדול
         handArray.sort((a, b) => valOrder[a.val] - valOrder[b.val]);
 
         let formattedHand = handArray.map(c => `[ ${c.val} ]${c.suit}`).join('  ');
