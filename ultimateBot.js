@@ -1,52 +1,67 @@
 // ultimateBot.js
+/**
+ * Ultimate Bot - Performance optimized and scalable lotto bot
+ * 
+ * This bot handles multiple concurrent requests efficiently, uses connection pooling for stable infrastructure,
+ * improves user messaging, and includes retry logic for better error recovery.
+ */
 
-const { Worker, isMainThread, parentPort } = require('worker_threads');
-const pino = require('pino');
+const Pool = require('pg').Pool');
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Logger setup
-const logger = pino({ level: 'info' });
+// Database connection pooling
+const pool = new Pool({
+    user: 'user',
+    host: 'localhost',
+    database: 'lotto_db',
+    password: 'password',
+    port: 5432,
+    max: 20, // set pool size
+    idleTimeoutMillis: 30000,
+});
 
-// Input validation function
-function validateInput(input) {
-    if (typeof input !== 'string' || input.trim() === '') {
-        throw new Error('Invalid input: must be a non-empty string.');
-    }
-}
+app.use(express.json());
 
-// Rate limiter
-const rateLimit = (function() {
-    let lastCalled = 0;
-    const limit = 1000; // 1 second
-    return function() {
-        const now = Date.now();
-        if (now - lastCalled < limit) {
-            throw new Error('Rate limit exceeded. Please wait.');
-        }
-        lastCalled = now;
-    };
-})();
-
-function runWorker(input) {
+// Improved user messaging
+app.get('/lotto', async (req, res) => {
     try {
-        validateInput(input);
-        rateLimit();
-        new Worker('./worker.js', { workerData: input })
-            .on('error', (error) => {
-                logger.error('Worker error: ', error);
-            })
-            .on('exit', (code) => {
-                if (code !== 0) {
-                    logger.error(`Worker stopped with exit code ${code}`);
-                }
-            });
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM tickets');
+        res.status(200).json({ message: 'Tickets fetched successfully', data: result.rows });
+        client.release();
     } catch (error) {
-        logger.error('Error: ', error);
-        // Perform resource cleanup
+        console.error('Error fetching tickets:', error);
+        res.status(500).json({ message: 'Failed to fetch tickets, please try again.' });
     }
-}
+});
 
-if (isMainThread) {
-    parentPort.on('message', (input) => {
-        runWorker(input);
-    });
-}
+// Enhanced retry logic for stability
+const fetchWithRetry = async (query, retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const client = await pool.connect();
+            const result = await client.query(query);
+            client.release();
+            return result;
+        } catch (error) {
+            console.error(`Attempt ${i + 1} failed:`, error);
+            if (i === retries - 1) throw new Error('Max retries reached');
+        }
+    }
+};
+
+app.post('/lotto', async (req, res) => {
+    const { ticket } = req.body;
+    try {
+        const result = await fetchWithRetry('INSERT INTO tickets (ticket) VALUES ($1)', [ticket]);
+        res.status(201).json({ message: 'Ticket created successfully', data: result });
+    } catch (error) {
+        res.status(500).json({ message: 'Error creating ticket, please try again later.' });
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
